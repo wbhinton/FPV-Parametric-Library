@@ -19,8 +19,9 @@ def generate_image(scad_file):
     base_name = os.path.splitext(os.path.basename(scad_file))[0]
     output_image = os.path.join(PREVIEW_DIR, base_name + IMG_EXT)
     
-    # Check if image exists and is newer than the scad file
-    if os.path.exists(output_image):
+    # Check if image exists, is valid (non-empty), and is newer than the scad file
+    min_size = 1000 # Minimum size in bytes (e.g., to catch empty/failed renders)
+    if os.path.exists(output_image) and os.path.getsize(output_image) > min_size:
         scad_mtime = os.path.getmtime(scad_file)
         img_mtime = os.path.getmtime(output_image)
         if img_mtime > scad_mtime:
