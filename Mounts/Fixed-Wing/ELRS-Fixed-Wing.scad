@@ -8,32 +8,32 @@
 /* [1. BASE PLATE SETTINGS] */
 
 // Total footprint width
-base_w          = 32.0;  
+base_w          = 25.0;  
 // Total footprint length
-base_l          = 48.0;  
+base_l          = 25.0;  
 // The flexible "hinge" layer (gluing surface)
-base_thick      = 1.2;   
+base_thick      = 1.8;   
 // The padded block that holds the antenna
-pad_thick       = 1.5;   
+pad_thick       = 1.8;   
 // Relief cuts that allow the TPU to curve around a wing
 slot_width      = 1.6;   
 
 /* [2. ANTENNA HARDWARE SPECS] */
 
-wire_dia        = 2.6;   
-junction_dia    = 5.2;   
+wire_dia        = .6;   
+junction_dia    = 2.2;   
 junction_l      = 7.5;   
-feedline_dia    = 3.0;   
+feedline_dia    = 2.0;   
 total_span      = 36.0;  
 
 /* [3. RETENTION & AERO] */
 
-ziptie_width    = 3.5;   
-ziptie_thick    = 1.8; 
+ziptie_width    = 3.0;   
+ziptie_thick    = 1.0; 
 // Moves the zip-tie back to clamp the coax, not the dipoles
 ziptie_offset   = 6.0;  
 // Size of the aerodynamic ramps on all sides
-aero_chamfer    = 3.0;
+aero_chamfer    = 4.0;
 
 /* [4. INTERNAL CALCULATIONS] */
 

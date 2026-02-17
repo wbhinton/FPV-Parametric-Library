@@ -1,98 +1,119 @@
 // =============================================================================
 // PROJECT: UNIVERSAL GPS STANDOFF MOUNT
-// VERSION: 2.9 (Full Parametric Entry - X/Z Window Control)
+// VERSION: 3.6 (Sharp Corner Edition)
+// DESCRIPTION: Removed corner radii on the box for cleaner gusset integration.
 // =============================================================================
 
 /* [1. FRAME SETTINGS] */
-standoff_dist   = 28.0;  
+standoff_dist   = 20.0;  
 standoff_dia    = 5.5;   
 standoff_height = 25.0;  
-wall_thickness  = 2.4; 
+wall            = 1.6; 
 
 /* [2. GPS COMPARTMENT SETTINGS] */
-gps_angle       = 5;    
-gps_offset      = 10.0;  
-gps_w           = 20.2;  
-gps_l           = 22.2;  
-gps_d           = 6.0;   
+gps_angle       = 25;    
+gps_offset      = 15.0;  
+gps_w           = 21.0;  
+gps_l           = 21.0;  
+gps_h           = 8.0;   
+nob_height      = 1.2;
 
 /* [3. WIRE WINDOW SETTINGS] */
-// Width of the rear wire entrance slot (mm)
-wire_window_w   = 12.0;  
-// Height of the rear wire entrance slot (mm)
+wire_width      = 12.0;  
 wire_window_h   = 4.0;   
-// Horizontal offset: 0 = Centered. (+) is Right, (-) is Left.
-wire_window_x   = 0.0;
-// Vertical offset: 0 = Bottom of cavity. Increase to move window up.
-wire_window_z   = 0.0;   
+// Shift the window: (-) for Left, (+) for Right. 0 is Centered.
+wire_offset     = -3.0; 
 
 /* [4. HARDWARE & RETENTION] */
-ziptie_width    = 3.5;   
-ziptie_thick    = 2.2; 
-wire_hole_dia   = 5.0; 
+zt_width        = 3.;   
+zt_depth        = 1.5; 
+// Corner radius now only applies to the standoff sleeves
+sleeve_radius   = 2.0;
+$fn = 60;
 
 /* [5. INTERNAL CALCULATIONS] */
-$fn = 60;
-box_w = gps_w + (wall_thickness * 2);
-box_l = gps_l + (wall_thickness * 2);
-box_d = gps_d + wall_thickness; 
+box_w = gps_w + (wall * 2);
+box_l = gps_l + (wall * 2);
+box_d_total = gps_h + nob_height + 1.2; 
+
+// Trig to keep top flush
+tilt_lift = sin(gps_angle) * (box_l/2);
+box_z_pos = standoff_height - (box_d_total / 2) - tilt_lift;
 
 // =============================================================================
 // MAIN ASSEMBLY
 // =============================================================================
 
 difference() {
-    // --- STEP 1: SOLID BODY ---
+    // --- STEP 1: SOLID GEOMETRY ---
     union() {
+        // A. Standoff Sleeves
         for(i=[-1, 1]) {
             translate([i * standoff_dist/2, 0, 0])
-                cylinder(h=standoff_height, d=standoff_dia + (wall_thickness*2));
+                cylinder(h=standoff_height, d=standoff_dia + (wall*2));
         }
 
-        translate([0, 0, standoff_height]) 
-            rotate([-gps_angle, 0, 0])
-                translate([0, gps_offset + (box_l/2), -box_d/2]) 
-                    cube([box_w, box_l, box_d], center=true);
+        // B. GPS Outer Shell (Sharp Corners)
+        translate([0, gps_offset + (box_l/2), box_z_pos]) 
+            rotate([-gps_angle, 0, 0]) {
+                // Main sharp-edged box
+                cube([box_w, box_l, box_d_total], center=true);
+                
+                // Internal Corner Nobs (Remains to support PCB)
+                for(x=[-1,1], y=[-1,1])
+                    translate([x*(gps_w/2 - 1.5), y*(gps_l/2 - 1.5), -box_d_total/2 + 1.2])
+                        cylinder(h=nob_height + 0.1, d=3);
+            }
 
-        for(i=[-1, 1]) {
+        // C. SOLID TRIANGULAR GUSSETS
+        for(side=[-1, 1]) { 
             hull() {
-                translate([0, 0, standoff_height]) 
+                // Round sleeve anchor
+                translate([side * standoff_dist/2, 0, 0])
+                    cylinder(h=standoff_height, d=standoff_dia + (wall*2));
+                
+                // Sharp box anchor (Full vertical edge)
+                translate([0, gps_offset + (box_l/2), box_z_pos]) 
                     rotate([-gps_angle, 0, 0])
-                        translate([i * (box_w/2 - 1), gps_offset + (box_l/2), -box_d/2])
-                            cube([2, box_l, box_d], center=true);
-                translate([i * standoff_dist/2, 0, 0])
-                    cylinder(h=1, d=standoff_dia + (wall_thickness*2));
+                        translate([side * (box_w/2 - 0.5), 0, 0])
+                            cube([1, box_l, box_d_total], center=true);
             }
         }
     }
 
     // --- STEP 2: SUBTRACTIONS ---
     
-    // A. Standoff Holes
+    // A. SAFETY PLANE CUT
+    translate([-100, -100, standoff_height])
+        cube([200, 200, 50]);
+
+    // B. STANDOFF HOLES
     for(i=[-1, 1]) {
         translate([i * standoff_dist/2, 0, -1])
             cylinder(h=standoff_height + 2, d=standoff_dia - 0.1, $fn=8);
     }
 
-    // B. Internal Cavity Group (Angled Box Interior)
-    translate([0, 0, standoff_height])
-        rotate([-gps_angle, 0, 0])
-            translate([0, gps_offset + (box_l/2), 0]) {
-                
-                // 1. The Main GPS Cavity
-                translate([0, 0, -gps_d/2 + 0.1])
-                    cube([gps_w, gps_l, gps_d + 0.2], center=true);
-                
-                // 2. THE REAR WIRE WINDOW (Now with X and Z adjustment)
-                translate([wire_window_x, -gps_l/2, -gps_d + (wire_window_h/2) + wire_window_z])
-                    cube([wire_window_w, wall_thickness * 6, wire_window_h], center=true);
+    // C. Internal Cavity (Sharp-edged)
+    translate([0, gps_offset + (box_l/2), box_z_pos])
+        rotate([-gps_angle, 0, 0]) {
+            
+            // 1. Main GPS Cavity
+            translate([0, 0, -box_d_total/2 + 1.2 + nob_height + (gps_h+5)/2])
+                cube([gps_w + 0.4, gps_l + 0.4, gps_h + 5], center=true);
+            
+            // 2. Floor relief
+            translate([0,0, -box_d_total/2 + 1.2 + (nob_height+0.1)/2])
+                cube([gps_w - 4, gps_l - 4, nob_height + 0.1], center=true);
+            
+            // 3. OFFSET WIRE WINDOW
+            translate([wire_offset, -gps_l/2 - wall, -box_d_total/2 + 1.2 + nob_height + (wire_window_h/2)])
+                cube([wire_width, wall * 4, wire_window_h], center=true);
 
-                // 3. Zip-Tie Trench & Side Windows
-                translate([0, 0, -gps_d - (ziptie_thick/2)])
-                    cube([box_w + 50, ziptie_width, ziptie_thick], center=true);
+            // 4. Zip-Tie Channel
+            translate([0, 0, -box_d_total/2 + 1.2 - (zt_depth/2)])
+                cube([box_w + 50, zt_width, zt_depth], center=true);
                 
-                // 4. Floor Push-out Port
-                translate([0, 0, -50])
-                    cylinder(h=100, d=wire_hole_dia);
-            }
+            // 5. Ejection Hole
+            translate([0, 0, -50]) cylinder(h=100, d=10);
+        }
 }

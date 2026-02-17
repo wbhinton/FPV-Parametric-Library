@@ -6,17 +6,17 @@
 // =============================================================================
 
 /* [1. BASE PLATE SETTINGS] */
-base_w          = 30.0;  
-base_l          = 55.0;  // Slightly longer to accommodate the dual-taper
+base_w          = 20.0;  
+base_l          = 45.0;  // Slightly longer to accommodate the dual-taper
 base_thick      = 1.2;   
 slot_width      = 1.6;   
 
 /* [2. ANTENNA HARDWARE SPECS] */
-dipole_arm_l    = 32.0;  
-junction_l      = 7.5;   
-junction_dia    = 5.2;   
-wire_dia        = 2.6;   
-feedline_dia    = 3.0;   
+dipole_arm_l    = 13.0;  
+junction_l      = 5.5;   
+junction_dia    = 3.2;   
+wire_dia        = 1.6;   
+feedline_dia    = 2.0;   
 wall_thickness  = 2.2; 
 
 /* [3. AERO SETTINGS] */
