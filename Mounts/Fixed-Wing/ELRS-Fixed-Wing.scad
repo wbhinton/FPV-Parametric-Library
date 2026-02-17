@@ -14,7 +14,7 @@ base_l          = 48.0;
 // The flexible "hinge" layer (gluing surface)
 base_thick      = 1.2;   
 // The padded block that holds the antenna
-pad_thick       = 4.5;   
+pad_thick       = 1.5;   
 // Relief cuts that allow the TPU to curve around a wing
 slot_width      = 1.6;   
 
