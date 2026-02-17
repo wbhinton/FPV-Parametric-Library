@@ -1,0 +1,40 @@
+name: Generate Previews
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.scad'
+      - '.github/scripts/generate_gallery.py'
+      - '.github/workflows/generate-previews.yml'
+      - 'README.md'
+
+jobs:
+  render-previews:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Generate Images and Update README
+        run: python .github/scripts/generate_gallery.py
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update scad previews and readme [skip ci]"
+          file_pattern: 'previews/*.png README.md'
