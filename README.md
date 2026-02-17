@@ -57,5 +57,6 @@ Feel free to submit Pull Requests with new parametric designs or improvements to
 | ![ActionCam Mount Fixed Wing](previews/ActionCam-Mount-Fixed-Wing.png)<br>**ActionCam Mount Fixed Wing** | ![ELRS Antenna Standoff](previews/ELRS-Antenna-Standoff.png)<br>**ELRS Antenna Standoff** | ![ELRS Fixed Wing Vertical](previews/ELRS-Fixed-Wing-Vertical.png)<br>**ELRS Fixed Wing Vertical** |
 | ![ELRS Fixed Wing](previews/ELRS-Fixed-Wing.png)<br>**ELRS Fixed Wing** | ![Fixed Wing GPS](previews/Fixed-Wing-GPS.png)<br>**Fixed Wing GPS** | ![Flat mount GPS](previews/Flat-mount-GPS.png)<br>**Flat mount GPS** |
 | ![GPS standoff mount](previews/GPS-standoff-mount.png)<br>**GPS standoff mount** | ![SMA Standoff Mount](previews/SMA-Standoff-Mount.png)<br>**SMA Standoff Mount** | ![SMA single standoff](previews/SMA-single-standoff.png)<br>**SMA single standoff** |
-| ![VTX Antenna Tower Fixed Wing](previews/VTX-Antenna-Tower-Fixed-Wing.png)<br>**VTX Antenna Tower Fixed Wing** | ![VTX Mount OptionalFan](previews/VTX-Mount-OptionalFan.png)<br>**VTX Mount OptionalFan** | ![Vifly Buzzer Standoff](previews/Vifly-Buzzer-Standoff.png)<br>**Vifly Buzzer Standoff** |
+| ![VTX Antenna Tower Fixed Wing](previews/VTX-Antenna-Tower-Fixed-Wing.png)<br>**VTX Antenna Tower Fixed Wing** | ![VTX Mount Cooling Fan](previews/VTX-Mount-Cooling-Fan.png)<br>**VTX Mount Cooling Fan** | ![VTX Mount OptionalFan](previews/VTX-Mount-OptionalFan.png)<br>**VTX Mount OptionalFan** |
+| ![Vifly Buzzer Standoff](previews/Vifly-Buzzer-Standoff.png)<br>**Vifly Buzzer Standoff** |  |  |
 <!-- GALLERY_END -->
