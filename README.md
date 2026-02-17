@@ -52,4 +52,6 @@ Feel free to submit Pull Requests with new parametric designs or improvements to
 ## 🖼️ Gallery
 
 <!-- GALLERY_START -->
+| | | |
+|:---:|:---:|:---:|
 <!-- GALLERY_END -->
