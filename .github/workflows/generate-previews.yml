@@ -20,10 +20,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install OpenSCAD
+      - name: Install OpenSCAD and xvfb
         run: |
           sudo apt-get update
-          sudo apt-get install -y openscad
+          sudo apt-get install -y openscad xvfb
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -31,7 +31,7 @@ jobs:
           python-version: '3.x'
 
       - name: Generate Images and Update README
-        run: python .github/scripts/generate_gallery.py
+        run: xvfb-run --auto-servernum python .github/scripts/generate_gallery.py
 
       - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
