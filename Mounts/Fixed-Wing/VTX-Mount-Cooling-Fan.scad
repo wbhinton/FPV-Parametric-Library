@@ -1,31 +1,44 @@
+// Copyright (C) 2026 Weston Hinton <wbhinton@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // =============================================================================
 // PROJECT: FPV PARAMETRIC LIBRARY - V-STACK VTX MOUNT
-// VERSION: 3.9 (Hulled Tangent Plenum)
-// DESCRIPTION: Uses hull() to create plenum walls that flow perfectly from 
-//              the center of the pillars, eliminating weird geometric edges.
+// VERSION: 3.9.1 (Base Insert Ready)
+// DESCRIPTION: Added heat-set insert recesses to the base plate standoffs.
 // =============================================================================
 
 /* [1. VIEW & RENDER CONTROL] */
-mode = 1; // [1:Assembly View, 2:Base Plate (Bottom), 3:The Hat (Top)]
+mode = 2; // [1:Assembly View, 2:Base Plate (Bottom), 3:The Hat (Top)]
 
 /* [2. VTX (VIDEO TRANSMITTER) DIMENSIONS] */
 vtx_w = 30.5;  
 vtx_l = 30.5;  
 vtx_pcb_thick = 1.6;   
 base_standoff_h = 6.0;   
-standoff_dia = 8.0;   
+standoff_dia = 7.0;   
 
 /* [3. FAN & PLENUM SETTINGS] */
 fan_w = 32.0;  
 fan_l = 32.0;
-fan_aperture = 37.0;  
-fan_gap = 6.0;   
+fan_aperture = 35.0;  
+fan_gap = 8.0;   
 fan_plate_thick = 5.0;   
 plate_padding = 4.0; 
 leg_extension = 4.0;
 
 /* [4. HARDWARE & FIT] */
-insert_hole_dia = 4.0;   
+insert_hole_dia = 4.5;   
 insert_hole_depth = 4.5;
 screw_dia = 3.4;   
 screw_head_dia = 6.5;   
@@ -80,8 +93,18 @@ module base_plate() {
                 }
             }
         }
-        for(x = [-vtx_w/2, vtx_w/2], y = [-vtx_l/2, vtx_l/2])
-            translate([x, y, -1]) cylinder(h=base_standoff_h + 5, d=screw_dia);
+        // SUBTRACTIONS
+        for(x = [-vtx_w/2, vtx_w/2], y = [-vtx_l/2, vtx_l/2]) {
+            // 1. Bolt Through-Hole
+            translate([x, y, -1]) 
+                cylinder(h=base_standoff_h + base_thick + 2, d=screw_dia);
+            
+            // 2. INSERT RECESS (At the top of the standoff)
+            translate([x, y, base_thick + base_standoff_h - insert_hole_depth + 0.1])
+                cylinder(h=insert_hole_depth, d=insert_hole_dia);
+        }
+        
+        // Flex Slots
         for(i = [-base_l/2 + 6 : 9 : base_l/2 - 6])
             translate([0, i, -0.1]) cube([base_w + 10, 1.6, base_thick + 0.5], center=true);
     }
@@ -95,7 +118,6 @@ module the_hat() {
                 rounded_rect(required_plate_w, required_plate_l, fan_plate_thick, 8);
             
             // 2. HULLED PLENUM WALLS
-            // This creates a smooth wall tangent to the pillars
             for(x_side = [-vtx_w/2, vtx_w/2]) {
                 hull() {
                     for(y_side = [-vtx_l/2, vtx_l/2]) {
@@ -119,7 +141,7 @@ module the_hat() {
                 translate([x, y, total_hat_h - insert_hole_depth + 0.1]) 
                     cylinder(h=insert_hole_depth + 1, d=insert_hole_dia);
 
-        // C. VTX MOUNTING HOLES
+        // C. VTX MOUNTING HOLES (Top Down)
         for(x = [-vtx_w/2, vtx_w/2], y = [-vtx_l/2, vtx_l/2]) {
             translate([x, y, -1]) cylinder(h=total_hat_h + 2, d=screw_dia);
             translate([x, y, total_hat_h - screw_head_depth + 0.01]) 
