@@ -36,8 +36,8 @@ nut_dia            = 5.5;
 nut_depth          = 2.0;   
 tab_thick          = 3.0;   
 tab_gap            = 3.2;   
-mount_height       = 10.0; 
-ramp_reach         = 5.0;   
+mount_height       = 6.5; 
+ramp_reach         = 4;   
 
 /* [3. INTERNAL CALCULATIONS] */
 tab_outer_dia   = bolt_dia + (tab_wall_thickness * 1.5); 

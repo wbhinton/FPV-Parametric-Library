@@ -26,7 +26,7 @@ wall            = 1.6;
 
 /* [2. GPS COMPARTMENT SETTINGS] */
 gps_angle       = 25;    
-gps_offset      = 15.0;  
+gps_offset      = 20.0;  
 gps_w           = 21.0;  
 gps_l           = 21.0;  
 gps_h           = 8.0;   

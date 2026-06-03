@@ -33,7 +33,7 @@ wall_thickness  = 2.4;
 /* [2. ANTENNA ORIENTATION] */
 
 // The "Twist" or Roll. 0 = Antenna points up, 90 = Antenna points sideways.
-antenna_roll    = 45;    
+antenna_roll    = 0;    
 
 // How far the center of the antenna sits from the center of the standoff.
 offset_dist     = 15.0;  
@@ -44,7 +44,7 @@ offset_dist     = 15.0;
 sma_hole_dia    = 6.4;   
 
 // The width of the metal nut (flat-to-flat).
-sma_hex_size    = 6.6;   
+sma_hex_size    = 8.1;   
 
 // How deep the nut sits inside the TPU (standard is 4mm - 5mm).
 sma_hex_depth   = 4.5;   
