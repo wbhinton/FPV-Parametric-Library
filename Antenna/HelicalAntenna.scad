@@ -1,11 +1,11 @@
 // =============================================================================
 // PROJECT: 5.8 GHz HELICAL ANTENNA PARAMETRIC GEOMETRY ENGINE
-// VERSION: 2.1 (Winding Groove Corrected)
+// VERSION: 2.2 (Reflector Cutting Template Added)
 // LICENSE: Creative Commons Zero (CC0) / Public Domain
 // AUTHOR: Weston Hinton (2026)
-// DESCRIPTION: Fixed subtractive pathing inside the template module. The tool
-//              now carves a true, deep helical tracking track onto the outer 
-//              wall of the mandrel core.
+// DESCRIPTION: Automated helical tracking antenna engine optimized for 
+//              0.6mm nozzle setups. Features an added thin-disc template 
+//              for scoring/tracing raw FR4 PCB stock manually.
 // =============================================================================
 
 /* [Antenna Tuning Specs] */
@@ -41,7 +41,7 @@ coaxialDiameter = 3.6;
 reflectorThickness = 1.6;
 
 /* [Render Controls] */
-part = "all"; // [all: All Parts, winding: Winding template, top: Top support frame, bottom: Bottom support frame, reflector: Reflector Base, cover: Reflector Cover, frame: All frame parts]
+part = "all"; // [all: All Parts, winding: Winding template, top: Top support frame, bottom: Bottom support frame, reflector: Reflector Base, cover: Reflector Cover, cutting_template: Reflector Cutting JIG, frame: All frame parts]
 
 /* [Hidden RF Math Engine] */
 c = 299792458 * 1000; // mm/s
@@ -120,6 +120,9 @@ module renderPart() {
         
         translate([-coverWidth / 2, -coverWidth - reflectorThickness - reflectorWalls - gap, 0]) roundReflector();
         translate([coverWidth / 2 + gap, -coverWidth - reflectorThickness - reflectorWalls - gap, 0]) coverRound();
+        
+        // Offset template to the far right side of the print bed setup
+        translate([coverWidth * 2 + gap * 2, 0, 0]) reflectorCuttingTemplate();
     }
 
     if(part == "frame") {
@@ -134,37 +137,30 @@ module renderPart() {
     if(part == "bottom") renderBottom();
     if(part == "reflector") roundReflector();
     if(part == "cover") coverRound();
+    if(part == "cutting_template") reflectorCuttingTemplate();
 }
 
 // =============================================================================
-// FIXED WINDING TEMPLATE MODULE
+// HELICAL WINDING MANDREL MODULE
 // =============================================================================
 module template(cw = true) {
-    // Local scope declaration to guarantee compilation across all parser types
     local_overlap = 0.05; 
     
     additionalHeight = height / turns;
     totalHeight = height + additionalHeight;
     
-    // Extrusion compensation parameter
     fdm_groove_padding = 0.15; 
     tool_radius = conductorRadius + fdm_groove_padding;
-    
-    // Pinned to the center line of the wire wrap path
     coil_center_line_r = meanDiameter / 2;
     
-    // Core pillar extends past the wire center line to provide a backing wall
     mandrel_pillar_r = coil_center_line_r + (conductorRadius * 0.4);
     total_rotation = (turns + 1) * 360 * (cw ? -1 : 1);
     
     difference() {
-        // 1. Solid Core Mandrel Cylinder
         cylinder(h = totalHeight, r = mandrel_pillar_r);
         
-        // 2. Continuous External Helical Track Cut
         translate([0, 0, -local_overlap]) {
             linear_extrude(height = totalHeight + 2*local_overlap, twist = total_rotation, slices = turns * 64, convexity = 10) {
-                // Places the cutter directly overlapping the outer skin boundary
                 translate([coil_center_line_r, 0, 0])
                     circle(r = tool_radius, $fn = 24); 
             }
@@ -173,7 +169,31 @@ module template(cw = true) {
 }
 
 // =============================================================================
-// MECHANICAL COMPONENTS
+// NEW: REFLECTOR CUTTING JIG TEMPLATE
+// =============================================================================
+module reflectorCuttingTemplate() {
+    local_overlap = 0.1;
+    // 4 solid layers thick at 0.24mm layer height
+    template_thickness = layerHeight * 4; 
+    
+    // RF Centerline radius where the wire coil actually starts
+    coax_offset_y = meanDiameter / 2;
+
+    difference() {
+        // 1. Outer disc matching the target PCB cut radius precisely
+        cylinder(h = template_thickness, r = reflectorRadius, $fn = 128);
+        
+        // 2. FIXED: Coaxial Feedline Hole offset to match the root edge of the coil
+        translate([0, -coax_offset_y, -local_overlap])
+            cylinder(h = template_thickness + local_overlap * 2, d = coaxialDiameter + holeClearance, $fn = 32);
+            
+
+    
+    }
+}
+
+// =============================================================================
+// MECHANICAL HOUSING COMPONENTS
 // =============================================================================
 module roundReflector() {
     translate([coverRadius, coverRadius, 0]) {
