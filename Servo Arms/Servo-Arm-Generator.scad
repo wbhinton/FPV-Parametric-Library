@@ -18,6 +18,7 @@
    Hitec Sub-Micro (A1 Spec)       |    15     |      3.9       |       3.2
    Standard SG90 9g (Clone)        |    21     |      4.9       |       3.2
    TowerPro SG90 9g (Genuine)      |    21     |      4.7       |       3.2
+   Generic 9g MG (MG90S / Clones)  |    20     |      4.8       |       3.5
    =============================================================================
 */
 
@@ -38,9 +39,9 @@ hole_diameter    = 2.5;   // Diameter for clevis/pushrod pins
 hole_padding     = 2.6;   // Increase for higher structural strength
 
 /* [4. Spline Interface Configuration] */
-spline_teeth        = 15;    // Number of teeth 
-spline_outer_dia    = 4.0;   // Major (outer) diameter of output shaft
-spline_depth        = 3.75;  // Total depth of engagement cavity
+spline_teeth        = 20;    // Number of teeth 
+spline_outer_dia    = 4.9;   // Major (outer) diameter of output shaft
+spline_depth        = 3.5;  // Total depth of engagement cavity
 retaining_screw_dia = 2.2;   // Center screw hole diameter
 fit_tolerance       = 0.15;  // Material compensation (0.15 - 0.20 for PETG-CF)
 
