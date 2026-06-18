@@ -1,0 +1,927 @@
+# Repository Analysis
+
+## Summary
+
+Directory: Users/wbhinton/projects/FPV-Parametric-Library/Antenna
+Files analyzed: 3
+
+Estimated tokens: 10.9k
+
+## Directory Structure
+
+Directory structure:
+└── Antenna/
+    ├── HelicalAntenna.scad
+    ├── helix_optimizer.py
+    └── OptimizedHelicalAntenna.scad
+
+
+## Files Content
+
+================================================
+FILE: HelicalAntenna.scad
+================================================
+// =============================================================================
+// PROJECT: 5.8 GHz HELICAL ANTENNA PARAMETRIC GEOMETRY ENGINE
+// VERSION: 2.2 (Reflector Cutting Template Added)
+// LICENSE: Creative Commons Zero (CC0) / Public Domain
+// AUTHOR: Weston Hinton (2026)
+// DESCRIPTION: Automated helical tracking antenna engine optimized for 
+//              0.6mm nozzle setups. Features an added thin-disc template 
+//              for scoring/tracing raw FR4 PCB stock manually.
+// =============================================================================
+
+/* [Antenna Tuning Specs] */
+// Center Frequency in MHz (e.g., 5790 for Raceband 1,3,5,8 mix)
+centerFrequency = 5790; // [5000:10:6000]
+// Number of turns (5 is the sweet spot for FPV goggles)
+turns = 5; // [1:1:16]
+// Circular polarization direction
+polarization = "right"; // [left: Left, right: Right]
+// Diameter of your physical copper wire in mm (12 AWG ≈ 2.05mm)
+wireDiameter = 2.05;
+
+/* [Reflector Customization] */
+// Reflector sizing scale relative to wavelength (0.75 lambda is minimum)
+reflectorScale = 0.75; // [0.75: Minimum (0.75 X Lambda), 0.85: Oversized, 0.95: High Shielding, 1.00: Max Performance]
+
+/* [Slicer & Print Optimization] */
+// Your printer's nozzle diameter in mm (Optimized for 0.6mm setups)
+nozzleSize = 0.6; // [0.4, 0.6, 0.8]
+// Target layer height for vertical prints (determines brim steps)
+layerHeight = 0.24; 
+// Desired perimeter count for structural walls
+wallPerimeters = 3; 
+// Desired thickness of the structural support plate (in mm)
+frameDepth = 3.0; 
+// Diametric padding for printed holes to counteract plastic shrinkage
+holeClearance = 0.25;
+
+/* [Hardware Specs] */
+// Outer diameter of the semi-rigid coax shield (RG402 is approx 3.6mm)
+coaxialDiameter = 3.6;
+// Thickness of your reflector plate material (Standard PCB is 1.6mm)
+reflectorThickness = 1.6;
+
+/* [Render Controls] */
+part = "all"; // [all: All Parts, winding: Winding template, top: Top support frame, bottom: Bottom support frame, reflector: Reflector Base, cover: Reflector Cover, cutting_template: Reflector Cutting JIG, frame: All frame parts]
+
+/* [Hidden RF Math Engine] */
+c = 299792458 * 1000; // mm/s
+lambda = c / (centerFrequency * 1000000); 
+meanDiameter = lambda / PI; 
+D = meanDiameter - wireDiameter; 
+pitchSpacing = meanDiameter * PI * tan(12.5); 
+L = turns * pitchSpacing; 
+
+calculatedReflectorDiameter = reflectorScale * lambda; 
+
+/* [Slicer-Driven Geometry Calcs] */
+extrusionWidth = nozzleSize * 1.125; 
+walls = extrusionWidth * wallPerimeters;
+reflectorWalls = extrusionWidth * 3; 
+reflectorCoverWalls = extrusionWidth * 2;
+
+depth = round(frameDepth / layerHeight) * layerHeight;
+reflectorCoverBrimHeight = layerHeight * 3; 
+reflectorBackCoverHeight = layerHeight * 4; 
+
+innerDiameter = D;
+conductorDiameter = wireDiameter;
+height = L;
+spacing = pitchSpacing;
+reflectorDiameter = calculatedReflectorDiameter + 3;
+
+$fn = 64;
+direction = polarization;
+enableReflectorMounts = "enabled";
+innerRadius = innerDiameter / 2;
+conductorRadius = conductorDiameter / 2;
+
+cutoutRadius = (spacing - (walls + conductorRadius) * 2) / 2;
+cutoutY = cutoutRadius + depth / 2 + walls * 1.5;
+
+topRadius = innerRadius + conductorRadius - cutoutRadius;
+holeRadius = conductorRadius + (holeClearance / 2); 
+
+holeWrapperRadius = conductorRadius + walls;
+holeWrapperY = innerRadius + conductorRadius;
+holeWrapperZ = conductorRadius + walls;
+
+reflectorRadius = reflectorDiameter / 2;
+reflectorDiameterOuter = reflectorDiameter + reflectorWalls * 2;
+reflectorCoverHeight = reflectorWalls + reflectorThickness + reflectorCoverBrimHeight;
+reflectorCoverDepth = depth + 0.4;
+reflectorCoverBrim = extrusionWidth * 3; 
+
+coverWidth = reflectorDiameter + reflectorWalls * 2 + reflectorCoverWalls * 2;
+reflectorWallOffset = reflectorCoverWalls + reflectorWalls;
+reflectorBrimTotal = reflectorCoverBrim * 2;
+widthCross = 0.4 + reflectorDiameterOuter;
+coverRadius = coverWidth / 2;
+
+coaxialRadius = coaxialDiameter / 2;
+reflectorBackCoverSnapHeight = reflectorWalls - 0.2;
+reflectorBackCoverSnapWidth = extrusionWidth * 4;
+reflectorBackCoverOuterRadius = coverRadius - reflectorCoverWalls - reflectorWalls - 0.2;
+reflectorBackCoverOuterWidth = reflectorDiameter - 0.4;
+
+renderPart();
+
+// =============================================================================
+// ASSEMBLY CONTROLLER
+// =============================================================================
+module renderPart() {
+    gap = 8; 
+    
+    if(part == "all") {
+        translate([0, 0, depth / 2]) renderTop();
+        translate([coverWidth + gap, 0, depth / 2]) renderBottom();
+     
+        translate([0, -coverWidth / 2 - reflectorThickness - reflectorWalls - gap, 0]) 
+            template(cw = (direction == "right") ? false : true);
+        
+        translate([-coverWidth / 2, -coverWidth - reflectorThickness - reflectorWalls - gap, 0]) roundReflector();
+        translate([coverWidth / 2 + gap, -coverWidth - reflectorThickness - reflectorWalls - gap, 0]) coverRound();
+        
+        // Offset template to the far right side of the print bed setup
+        translate([coverWidth * 2 + gap * 2, 0, 0]) reflectorCuttingTemplate();
+    }
+
+    if(part == "frame") {
+        translate([0, 0, depth / 2]) renderTop();
+        translate([coverWidth + gap, 0, depth / 2]) renderBottom();
+        translate([0, -coverWidth - gap, 0]) roundReflector();
+        translate([coverWidth + gap, -coverWidth - gap, 0]) coverRound();
+    }
+
+    if(part == "winding") template(cw = (direction == "right") ? false : true);
+    if(part == "top") renderTop();
+    if(part == "bottom") renderBottom();
+    if(part == "reflector") roundReflector();
+    if(part == "cover") coverRound();
+    if(part == "cutting_template") reflectorCuttingTemplate();
+}
+
+// =============================================================================
+// HELICAL WINDING MANDREL MODULE
+// =============================================================================
+module template(cw = true) {
+    local_overlap = 0.05; 
+    
+    additionalHeight = height / turns;
+    totalHeight = height + additionalHeight;
+    
+    fdm_groove_padding = 0.15; 
+    tool_radius = conductorRadius + fdm_groove_padding;
+    coil_center_line_r = meanDiameter / 2;
+    
+    mandrel_pillar_r = coil_center_line_r + (conductorRadius * 0.4);
+    total_rotation = (turns + 1) * 360 * (cw ? -1 : 1);
+    
+    difference() {
+        cylinder(h = totalHeight, r = mandrel_pillar_r);
+        
+        translate([0, 0, -local_overlap]) {
+            linear_extrude(height = totalHeight + 2*local_overlap, twist = total_rotation, slices = turns * 64, convexity = 10) {
+                translate([coil_center_line_r, 0, 0])
+                    circle(r = tool_radius, $fn = 24); 
+            }
+        }
+    }
+}
+
+// =============================================================================
+// NEW: REFLECTOR CUTTING JIG TEMPLATE
+// =============================================================================
+module reflectorCuttingTemplate() {
+    local_overlap = 0.1;
+    // 4 solid layers thick at 0.24mm layer height
+    template_thickness = layerHeight * 4; 
+    
+    // RF Centerline radius where the wire coil actually starts
+    coax_offset_y = meanDiameter / 2;
+
+    difference() {
+        // 1. Outer disc matching the target PCB cut radius precisely
+        cylinder(h = template_thickness, r = reflectorRadius, $fn = 128);
+        
+        // 2. FIXED: Coaxial Feedline Hole offset to match the root edge of the coil
+        translate([0, -coax_offset_y, -local_overlap])
+            cylinder(h = template_thickness + local_overlap * 2, d = coaxialDiameter + holeClearance, $fn = 32);
+            
+
+    
+    }
+}
+
+// =============================================================================
+// MECHANICAL HOUSING COMPONENTS
+// =============================================================================
+module roundReflector() {
+    translate([coverRadius, coverRadius, 0]) {
+        difference() {
+            cylinder(r = coverRadius, h = reflectorCoverHeight);
+            translate([0, 0, reflectorCoverBrimHeight]) cylinder(r = reflectorRadius, h = reflectorCoverHeight);
+            translate([0, 0, -1]) cylinder(r = reflectorRadius - reflectorCoverBrim, h = reflectorCoverHeight + 2);
+            translate([-widthCross / 2, -reflectorCoverDepth / 2, -1]) cube([widthCross, reflectorCoverDepth, reflectorCoverHeight + 2]);
+            translate([-reflectorCoverDepth / 2, 0, -1]) cube([reflectorCoverDepth, widthCross / 2, reflectorCoverHeight + 2]);
+        }
+    }
+}
+
+module coverRound() {        
+    difference() {
+        translate([coverRadius, coverRadius, 0]) {
+            union(){
+                cylinder(r = coverRadius, h = reflectorBackCoverHeight);
+                difference() {
+                    cylinder(r = reflectorBackCoverOuterRadius, h = reflectorBackCoverHeight + reflectorBackCoverSnapHeight);
+                    cylinder(r = reflectorBackCoverOuterRadius - reflectorBackCoverSnapWidth, h = reflectorBackCoverHeight + reflectorBackCoverSnapHeight + 1);
+                }
+            }
+        }
+        translate([coverRadius, coverRadius - innerRadius, -1]) cylinder(r = coaxialRadius, h = reflectorBackCoverHeight + 2);
+        translate([reflectorCoverWalls - 0.2, coverWidth/2 - reflectorCoverDepth, reflectorBackCoverHeight]) cube([widthCross, reflectorCoverDepth * 2, reflectorCoverHeight + 2]);
+        translate([coverWidth / 2 - reflectorCoverDepth, reflectorCoverWalls - 0.2, reflectorBackCoverHeight]) cube([reflectorCoverDepth * 2, widthCross, reflectorCoverHeight + 2]);
+    }
+}
+
+module renderTop() { rotate([0, 270, 270]) top(); }
+module renderBottom() { rotate([0, 270, 270]) bottom(); }
+    
+module top() {
+    slitHeight = (height) / 2 + 0.2;
+    turnOffset = 0;
+    difference() {
+        support(turnOffset = turnOffset, mounts = (enableReflectorMounts == "enabled") ? true : false);
+        translate([-depth, -depth / 2 - 0.05, -1]) cube([depth + 2, depth + 0.1, slitHeight + 1]);
+        hull() {
+            rotate([0,90,0]) {
+                translate([-holeWrapperZ - (spacing * turns) - turnOffset, -innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-holeWrapperZ - (spacing * turns) - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-holeWrapperZ - (spacing * (turns + 1)) - turnOffset, -innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-holeWrapperZ - (spacing * (turns + 1)) - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+            }
+        }
+    }
+}
+
+module bottom() {
+    slitOffset = (height / 2) - 0.2;
+    turnOffset = spacing / 4;
+    difference() {
+        support(turnOffset = turnOffset, mounts = (enableReflectorMounts == "enabled") ? true : false, both = false);
+        translate([-depth, -depth / 2 - 0.05, slitOffset]) cube([depth + 2, depth + 0.1, height]);
+        hull() {
+            rotate([0,90,0]) {
+                translate([-holeWrapperZ - (spacing * turns) + spacing / 2 - turnOffset, innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-holeWrapperZ - (spacing * turns) + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-holeWrapperZ - (spacing * (turns + 1)) + spacing / 2 - turnOffset, innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-holeWrapperZ - (spacing * (turns + 1)) + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+            }
+        }
+    }
+}
+
+module support(turnOffset = 0, mounts = true, both = true) {
+    difference() {
+        union() {
+            difference() {
+                union() {
+                    for(i=[0:1:turns]) {
+                        rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - turnOffset, holeWrapperY, -depth / 2]) cylinder(r = holeWrapperRadius, h = depth);
+                    }
+                    for(i=[0:1:turns -1]) {
+                        rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - spacing / 2 - turnOffset, -holeWrapperY, -depth / 2]) cylinder(r = holeWrapperRadius, h = depth);
+                    }
+                    translate([-depth / 2, -holeWrapperY, 0]) cube([depth, holeWrapperY * 2, turns * spacing + holeWrapperRadius * 2]);
+                }
+                for(i=[0:1:turns]) {
+                    rotate([0,90,0]) hull() {
+                        translate([-holeWrapperZ - spacing * (i + 1) + spacing / 2 - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * (i + 1) + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                    }
+                }
+                for(i=[0:1:turns - 1]) {
+                    rotate([0,90,0]) hull() {
+                        translate([-holeWrapperZ - spacing * i - spacing / 2 - spacing / 2 - turnOffset, -holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * i - spacing / 2 - spacing / 2 - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                    }
+                }
+                rotate([0,90,0]) {
+                    hull() {
+                        translate([-holeWrapperZ - spacing * -1 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * -1 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY * 2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * -2 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * -2 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY * 2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                    }
+                    hull() {
+                        translate([-holeWrapperZ + spacing / 2 - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * -1 + spacing / 2 - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-holeWrapperZ - spacing * -1 + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                    }
+                }
+            }
+            if(mounts && both) {
+                difference() {
+                    translate([-depth / 2,-reflectorDiameterOuter / 2, -reflectorWalls - reflectorThickness]) cube([depth, reflectorDiameterOuter, reflectorWalls * 2 + reflectorThickness]);
+                    translate([-depth / 2 - 1,-reflectorRadius, -reflectorThickness]) cube([depth + 2, reflectorDiameter, reflectorThickness]);
+                    translate([-depth / 2 - 1, -reflectorRadius + reflectorWalls, -reflectorWalls - reflectorThickness - 1]) cube([depth + 2, reflectorDiameter - reflectorWalls * 2, reflectorWalls + 2]);
+                }
+            }
+            if(mounts && !both) {
+                difference() {
+                    translate([-depth / 2, 0, -reflectorWalls - reflectorThickness]) cube([depth, reflectorDiameterOuter / 2, reflectorWalls * 2 + reflectorThickness]);
+                    translate([-depth / 2 - 1,-reflectorRadius, -reflectorThickness]) cube([depth + 2, reflectorDiameter, reflectorThickness]);
+                    translate([-depth / 2 - 1, -reflectorRadius + reflectorWalls, -reflectorWalls - reflectorThickness - 1]) cube([depth + 2, reflectorDiameter - reflectorWalls * 2, reflectorWalls + 2]);
+                }
+            }
+        }
+        for(i=[0:1:turns - 1]) {
+            rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - spacing / 2 - turnOffset, -holeWrapperY, -depth + 1]) cylinder(r = holeRadius, h = depth + 2);
+        }
+        for(i=[0:1:turns]) {
+            rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = holeRadius, h = depth + 2);
+        }
+    }
+}
+
+
+================================================
+FILE: helix_optimizer.py
+================================================
+#!/usr/bin/env python3
+"""
+GA-Optimized Helical Antenna Parameter Generator & Visualizer
+Scales optimization coefficients from a base 2.0 GHz design to a target frequency (e.g., 5.8 GHz).
+Outputs variables for OpenSCAD and plots the physical radius taper.
+"""
+
+import os
+import argparse
+import matplotlib.pyplot as plt
+import numpy as np
+
+import sys
+
+def main():
+    parser = argparse.ArgumentParser(description="Tapered Helical Antenna Optimizer")
+    parser.add_argument("--freq", type=float, default=None, help="Target frequency in GHz or MHz (default: 5.8 GHz)")
+    parser.add_argument("--wire", type=float, default=2.05, help="Wire diameter in mm (default: 2.05)")
+    parser.add_argument("--turns", type=int, default=10, help="Number of turns (default: 10)")
+    parser.add_argument("--output-dir", type=str, default=".", help="Directory to save the plot image")
+    args = parser.parse_args()
+
+    # Interactive prompt if run with no command-line arguments
+    if len(sys.argv) == 1:
+        print("=== Interactive Helical Antenna Optimizer ===")
+        freq_input = input("Enter target frequency (e.g., 5.8 for GHz, or 5790 for MHz) [5.8]: ").strip()
+        if freq_input:
+            args.freq = float(freq_input)
+        else:
+            args.freq = 5.8
+
+        wire_input = input("Enter wire diameter in mm [2.05]: ").strip()
+        if wire_input:
+            args.wire = float(wire_input)
+
+        turns_input = input("Enter number of turns [10]: ").strip()
+        if turns_input:
+            args.turns = int(turns_input)
+    else:
+        # Fallback to default if not specified via CLI
+        if args.freq is None:
+            args.freq = 5.8
+
+    # Normalize frequency: If > 100, assume it's in MHz and convert to GHz
+    if args.freq > 100:
+        print(f"Interpreting frequency {args.freq} as MHz. Converting to {args.freq / 1000.0:.3f} GHz.")
+        args.freq = args.freq / 1000.0
+
+    # Constants
+    c = 299792458  # speed of light in m/s
+    f_base = 2.0   # Base GA frequency in GHz
+    f_target = args.freq
+
+    # Wavelength in meters
+    lambda_m = c / (f_target * 1e9)
+    lambda_mm = lambda_m * 1000
+
+    # Base GA Coefficients (optimized for 2.0 GHz, 10-turn helix, units in meters/dimensionless)
+    p1_base = -0.27706
+    p2_base = 0.07329
+    p3_base = 0.03027
+
+    # Scaling factor S
+    S = f_base / f_target
+
+    # Scaled Coefficients (in meters)
+    p1_scaled = p1_base / S
+    p2_scaled = p2_base
+    p3_scaled = p3_base * S
+
+    # Convert to OpenSCAD Units (millimeters)
+    # Since z is in mm and rho is in mm:
+    # rho_mm = p1_mm * z_mm^2 + p2_mm * z_mm + p3_mm
+    # rho_m * 1000 = (p1_m / 1000) * z_mm^2 + p2_m * z_mm + p3_m * 1000
+    p1_mm = p1_scaled / 1000.0
+    p2_mm = p2_scaled
+    p3_mm = p3_scaled * 1000.0
+
+    # Height calculations:
+    # Defaulting to 1 lambda for general-purpose/freestyle FPV (wide beam spotlight).
+    # For long-range tracking, user can scale this up to 2.2 lambda (approx. 115mm).
+    total_height_mm = 1.0 * lambda_mm
+
+    # Reflector sizing: 0.75 lambda is the standard optimum for suppressing back-radiation.
+    reflector_dia_min = 0.5 * lambda_mm
+    reflector_dia_max = 0.75 * lambda_mm
+    reflector_dia_opt = 0.75 * lambda_mm
+
+    # Print OpenSCAD formatted variables
+    print("// =====================================================================")
+    print(f"// SCALED GA PARAMETERS FOR TARGET FREQUENCY: {f_target:.3f} GHz")
+    print(f"// Wavelength: {lambda_mm:.3f} mm")
+    print("// =====================================================================")
+    print(f"scaled_p1 = {p1_mm:.10f}; // 1/mm coefficient")
+    print(f"scaled_p2 = {p2_mm:.10f}; // Dimensionless linear coefficient")
+    print(f"scaled_p3 = {p3_mm:.10f}; // mm coefficient")
+    print(f"turns = {args.turns}; // Optimized number of turns")
+    print(f"antenna_total_height = {total_height_mm:.3f}; // Total height along Z-axis in mm")
+    print(f"reflector_diameter = {reflector_dia_opt:.3f}; // Optimal reflector diameter (0.75 lambda) in mm")
+    print(f"reflector_diameter_min = {reflector_dia_min:.3f}; // 0.50 lambda limit in mm")
+    print(f"reflector_diameter_max = {reflector_dia_max:.3f}; // 0.75 lambda limit in mm")
+    print("// =====================================================================\n")
+
+    # Generate plot data
+    z_vals = np.linspace(0, total_height_mm, 200)
+    # rho(z) in mm
+    rho_vals = p1_mm * (z_vals ** 2) + p2_mm * z_vals + p3_mm
+
+    plt.figure(figsize=(8, 5))
+    plt.plot(z_vals, rho_vals, label=r"$\rho(z) = p_1 z^2 + p_2 z + p_3$ (Radius)", color="dodgerblue", linewidth=2.5)
+    plt.plot(z_vals, -rho_vals, color="dodgerblue", linestyle="--", alpha=0.5, label="Symmetric Radius Profile")
+    plt.title(f"Tapered Helical Antenna Profile ({f_target:.2f} GHz, {args.turns} Turns)", fontsize=12, fontweight='bold')
+    plt.xlabel("Antenna Height z (mm)", fontsize=10)
+    plt.ylabel("Helix Radius \u03c1 (mm)", fontsize=10)
+    plt.grid(True, linestyle=":", alpha=0.6)
+    plt.legend()
+    plt.tight_layout()
+
+    # Save plot
+    os.makedirs(args.output_dir, exist_ok=True)
+    plot_path = os.path.join(args.output_dir, "helix_taper.png")
+    plt.savefig(plot_path, dpi=150)
+    print(f"Taper visualization plot saved to: {plot_path}")
+
+if __name__ == "__main__":
+    main()
+
+
+
+================================================
+FILE: OptimizedHelicalAntenna.scad
+================================================
+// =============================================================================
+// PROJECT: GA-OPTIMIZED TAPERED HELICAL ANTENNA GENERATOR
+// VERSION: 3.0 (Tapered skeletal supports & mandrel)
+// LICENSE: Creative Commons Zero (CC0) / Public Domain
+// AUTHOR: Weston Hinton & Antigravity (2026)
+// DESCRIPTION: Dynamic helical antenna support frame and winding mandrel
+//              tapered using a 2nd-order polynomial optimized via a
+//              Genetic Algorithm for superior RF performance.
+// =============================================================================
+// REFERENCES & THEORETICAL FOUNDATION
+// =============================================================================
+// This generator is based on the optimization of axial-mode helical antennas 
+// using numerical optimization to define a continuously tapered (trumpet-like) 
+// profile and a shaped ground plane.
+//
+// 1. GA-Optimized Polynomial Taper:
+//    Djordjevic, A. R., Zajic, A. G., Ilic, M. M., & Stuber, G. L. (2006). 
+//    "Optimization of Helical Antennas [Antenna Designer's Notebook]." 
+//    IEEE Antennas and Propagation Magazine, 48(6), 107-115.
+//    (Establishes the non-uniform, continuously varying radius using a 2nd-order 
+//    polynomial to increase gain, bandwidth, and circular polarization purity) [1, 2].
+//
+// 2. Cupped Reflector / Cavity Design:
+//    Djordjevic, A. R., Zajic, A. G., & Ilic, M. M. (2006). 
+//    "Enhancing the Gain of Helical Antennas by Shaping the Ground Conductor." 
+//    IEEE Antennas and Wireless Propagation Letters, 5(1), 138-140.
+//    (Details the use of a circular cavity/cupped ground plane to suppress 
+//    back-radiation and boost forward gain by up to 4 dB) [2-4].
+//
+// 3. Classical Helical Antenna Theory:
+//    Kraus, J. D. (1947). "Helical Beam Antennas." Electronics, 20, 109-111.
+//    Kraus, J. D. (1988). "Antennas" (2nd ed.). McGraw-Hill.
+//    (The foundational empirical formulas for axial-mode traveling-wave 
+//    antennas, pitch angles, and circumference limits) [1, 2, 5].
+// =============================================================================
+
+
+/* [Antenna Tuning Specs] */
+// Center Frequency in MHz
+centerFrequency = 5790; // [5000:10:6000]
+// Number of turns
+turns = 10; // [1:1:16]
+// Circular polarization direction
+polarization = "right"; // [left: Left, right: Right]
+// Diameter of copper wire in mm (12 AWG ≈ 2.05mm)
+wireDiameter = 2.05;
+
+/* [Genetic Algorithm Taper Parameters (Scaled to 5.8 GHz)] */
+// 2nd-order polynomial coefficient (1/mm)
+p1 = -0.0008034740;
+// 1st-order polynomial coefficient (dimensionless)
+p2 = 0.0732900000;
+// Constant coefficient (mm) (base radius at z=0)
+p3 = 10.4379310345;
+
+/* [Reflector Customization] */
+// Override reflector diameter (set to 0 to use automatic 0.75 lambda scaling)
+customReflectorDiameter = 0.0;
+// Reflector sizing scale relative to wavelength (0.75 lambda is standard optimum)
+reflectorScale = 0.75; // [0.50:0.05:1.00]
+
+/* [Slicer & Print Optimization] */
+// Printer nozzle diameter in mm
+nozzleSize = 0.6; // [0.4, 0.6, 0.8]
+// Target layer height for vertical prints
+layerHeight = 0.24; 
+// Desired perimeter count for structural walls
+wallPerimeters = 3; 
+// Desired thickness of the structural support plate (in mm)
+frameDepth = 3.0; 
+// Diametric padding for printed holes to counteract plastic shrinkage
+holeClearance = 0.25;
+
+/* [Hardware Specs] */
+// Outer diameter of the semi-rigid coax shield (RG402 is approx 3.6mm)
+coaxialDiameter = 3.6;
+// Thickness of your reflector plate material (Standard PCB is 1.6mm)
+reflectorThickness = 1.6;
+
+/* [Render Controls] */
+part = "all"; // [all: All Parts, winding: Winding template, top: Top support frame, bottom: Bottom support frame, reflector: Reflector Base, cutting_template: Reflector Cutting JIG, frame: All frame parts]
+
+/* [Hidden RF Math Engine] */
+c = 299792458 * 1000; // mm/s
+lambda = c / (centerFrequency * 1000000); 
+
+// Dynamic Radius Function using GA 2nd-order polynomial
+function getRadiusAtZ(z) = (p1 * z * z) + (p2 * z) + p3;
+
+// Antenna total height (default is 1 lambda for wide freestyle spotlight beam, can be scaled up)
+antennaTotalHeight = lambda;
+height = antennaTotalHeight;
+spacing = height / turns;
+
+calculatedReflectorDiameter = (customReflectorDiameter > 0) ? customReflectorDiameter : (reflectorScale * lambda); 
+
+/* [Slicer-Driven Geometry Calcs] */
+extrusionWidth = nozzleSize * 1.125; 
+walls = extrusionWidth * wallPerimeters;
+reflectorWalls = extrusionWidth * 3; 
+
+depth = round(frameDepth / layerHeight) * layerHeight;
+reflectorCoverBrimHeight = layerHeight * 3; 
+
+innerDiameter = getRadiusAtZ(0) * 2;
+conductorDiameter = wireDiameter;
+reflectorDiameter = calculatedReflectorDiameter + 3;
+
+$fn = 64;
+direction = polarization;
+enableReflectorMounts = "enabled";
+conductorRadius = conductorDiameter / 2;
+
+cutoutRadius = (spacing - (walls + conductorRadius) * 2) / 2;
+cutoutY = cutoutRadius + depth / 2 + walls * 1.5;
+
+holeRadius = conductorRadius + (holeClearance / 2); 
+holeWrapperRadius = conductorRadius + walls;
+holeWrapperZ = conductorRadius + walls;
+
+reflectorRadius = reflectorDiameter / 2;
+reflectorDiameterOuter = reflectorDiameter + reflectorWalls * 2;
+reflectorCoverHeight = reflectorWalls + reflectorThickness + reflectorCoverBrimHeight;
+reflectorCoverDepth = depth + 0.4;
+reflectorCoverBrim = extrusionWidth * 3; 
+
+coverWidth = reflectorDiameter + reflectorWalls * 2 + reflectorWalls * 2;
+reflectorWallOffset = reflectorWalls + reflectorWalls;
+reflectorBrimTotal = reflectorCoverBrim * 2;
+widthCross = 0.4 + reflectorDiameterOuter;
+coverRadius = coverWidth / 2;
+
+coaxialRadius = coaxialDiameter / 2;
+
+// Additional height for winding mandrel
+additionalHeight = height / turns;
+totalHeight = height + additionalHeight;
+
+renderPart();
+
+// =============================================================================
+// ASSEMBLY CONTROLLER
+// =============================================================================
+module renderPart() {
+    gap = 8; 
+    
+    if(part == "all") {
+        translate([0, 0, depth / 2]) renderTop();
+        translate([coverWidth + gap, 0, depth / 2]) renderBottom();
+     
+        translate([0, -coverWidth / 2 - reflectorThickness - reflectorWalls - gap, 0]) 
+            template(cw = (direction == "right") ? false : true);
+        
+        translate([-coverWidth / 2, -coverWidth - reflectorThickness - reflectorWalls - gap, 0]) roundReflector();
+        
+        // Offset template to the far right side of the print bed setup
+        translate([coverWidth * 2 + gap * 2, 0, 0]) reflectorCuttingTemplate();
+    }
+
+    if(part == "frame") {
+        translate([0, 0, depth / 2]) renderTop();
+        translate([coverWidth + gap, 0, depth / 2]) renderBottom();
+        translate([0, -coverWidth - gap, 0]) roundReflector();
+    }
+
+    if(part == "winding") template(cw = (direction == "right") ? false : true);
+    if(part == "top") renderTop();
+    if(part == "bottom") renderBottom();
+    if(part == "reflector") roundReflector();
+    if(part == "cutting_template") reflectorCuttingTemplate();
+}
+
+// =============================================================================
+// HELICAL WINDING MANDREL MODULE (TAPERED)
+// =============================================================================
+module template(cw = true) {
+    local_overlap = 0.05; 
+    
+    fdm_groove_padding = 0.15; 
+    tool_radius = conductorRadius + fdm_groove_padding;
+    
+    render(convexity = 10) {
+        difference() {
+            // Tapered Mandrel Pillar
+            taperedMandrelPillar();
+            
+            // Tapered Groove cutout
+            translate([0, 0, -local_overlap]) {
+                taperedGroove(cw);
+            }
+        }
+    }
+}
+
+module taperedMandrelPillar() {
+    slices = 40;
+    dz = totalHeight / slices;
+    for (i = [0 : slices - 1]) {
+        z1 = i * dz;
+        r1 = getRadiusAtZ(z1) - conductorRadius * 0.6;
+        r2 = getRadiusAtZ(z1 + dz) - conductorRadius * 0.6;
+        translate([0, 0, z1]) cylinder(h = dz, r1 = r1, r2 = r2, $fn = 48);
+    }
+}
+
+module taperedGroove(cw = true) {
+    steps_per_turn = 24;
+    total_steps = (turns + 1) * steps_per_turn;
+    d_theta = 360 / steps_per_turn;
+    
+    fdm_groove_padding = 0.15; 
+    tool_radius = conductorRadius + fdm_groove_padding;
+    
+    for (i = [0 : total_steps - 1]) {
+        theta1 = i * d_theta;
+        theta2 = (i + 1) * d_theta;
+        
+        z1 = (theta1 / 360) * spacing;
+        z2 = (theta2 / 360) * spacing;
+        
+        r1 = getRadiusAtZ(z1);
+        r2 = getRadiusAtZ(z2);
+        
+        x1 = r1 * cos(theta1 * (cw ? -1 : 1));
+        y1 = r1 * sin(theta1 * (cw ? -1 : 1));
+        
+        x2 = r2 * cos(theta2 * (cw ? -1 : 1));
+        y2 = r2 * sin(theta2 * (cw ? -1 : 1));
+        
+        hull() {
+            translate([x1, y1, z1]) sphere(r = tool_radius, $fn = 8);
+            translate([x2, y2, z2]) sphere(r = tool_radius, $fn = 8);
+        }
+    }
+}
+// =============================================================================
+// REFLECTOR CUTTING JIG TEMPLATE
+// =============================================================================
+module reflectorCuttingTemplate() {
+    local_overlap = 0.1;
+    template_thickness = layerHeight * 4; 
+    
+    // RF Centerline radius at start (z=0)
+    coax_offset_y = getRadiusAtZ(0);
+
+    difference() {
+        cylinder(h = template_thickness, r = reflectorRadius, $fn = 128);
+        
+        translate([0, -coax_offset_y, -local_overlap])
+            cylinder(h = template_thickness + local_overlap * 2, d = coaxialDiameter + holeClearance, $fn = 32);
+    }
+}
+
+// =============================================================================
+// MECHANICAL HOUSING COMPONENTS
+// =============================================================================
+// Note: As requested, we maintain a flat reflector base mounting frame rather than cupping
+module roundReflector() {
+    translate([coverRadius, coverRadius, 0]) {
+        difference() {
+            cylinder(r = coverRadius, h = reflectorCoverHeight);
+            translate([0, 0, reflectorCoverBrimHeight]) cylinder(r = reflectorRadius, h = reflectorCoverHeight);
+            translate([0, 0, -1]) cylinder(r = reflectorRadius - reflectorCoverBrim, h = reflectorCoverHeight + 2);
+            translate([-widthCross / 2, -reflectorCoverDepth / 2, -1]) cube([widthCross, reflectorCoverDepth, reflectorCoverHeight + 2]);
+            translate([-reflectorCoverDepth / 2, 0, -1]) cube([reflectorCoverDepth, widthCross / 2, reflectorCoverHeight + 2]);
+        }
+    }
+}
+
+// =============================================================================
+// SKELETAL SUPPORT MODULES
+// =============================================================================
+module renderTop() { rotate([0, 270, 270]) top(); }
+module renderBottom() { rotate([0, 270, 270]) bottom(); }
+    
+module top() {
+    slitHeight = (height) / 2 + 0.2;
+    turnOffset = 0;
+    difference() {
+        support(turnOffset = turnOffset, mounts = (enableReflectorMounts == "enabled") ? true : false, both = true);
+        translate([-depth, -depth / 2 - 0.05, -1]) cube([depth + 2, depth + 0.1, slitHeight + 1]);
+        
+        // Remove material for interlocking cutouts dynamically
+        hull() {
+            rotate([0,90,0]) {
+                z1 = holeWrapperZ + (spacing * turns) + turnOffset;
+                z2 = holeWrapperZ + (spacing * (turns + 1)) + turnOffset;
+                
+                r1 = getRadiusAtZ(z1);
+                r2 = getRadiusAtZ(z2);
+                
+                translate([-z1, -r1, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-z1, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-z2, -r2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-z2, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+            }
+        }
+    }
+}
+
+module bottom() {
+    slitOffset = (height / 2) - 0.2;
+    turnOffset = spacing / 4;
+    difference() {
+        support(turnOffset = turnOffset, mounts = (enableReflectorMounts == "enabled") ? true : false, both = false);
+        translate([-depth, -depth / 2 - 0.05, slitOffset]) cube([depth + 2, depth + 0.1, height]);
+        
+        hull() {
+            rotate([0,90,0]) {
+                z1 = holeWrapperZ + (spacing * turns) - spacing / 2 + turnOffset;
+                z2 = holeWrapperZ + (spacing * (turns + 1)) - spacing / 2 + turnOffset;
+                
+                r1 = getRadiusAtZ(z1);
+                r2 = getRadiusAtZ(z2);
+                
+                translate([-z1, r1, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-z1, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-z2, r2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-z2, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+            }
+        }
+    }
+}
+
+module spineProfile(turnOffset) {
+    steps = turns * 4;
+    max_z = turns * spacing + holeWrapperRadius * 2;
+    dz = max_z / steps;
+    points = concat(
+        [for (s = [0 : steps]) 
+            let (z = s * dz) 
+            [z, getRadiusAtZ(z) + holeWrapperRadius]],
+        [for (s = [steps : -1 : 0]) 
+            let (z = s * dz) 
+            [z, -(getRadiusAtZ(z) + holeWrapperRadius)]]
+    );
+    polygon(points);
+}
+
+module support(turnOffset = 0, mounts = true, both = true) {
+    difference() {
+        union() {
+            difference() {
+                union() {
+                    // 1. Generate the wire guide loops/collars along the tapered profile
+                    for(i=[0:1:turns]) {
+                        z_val = holeWrapperZ + spacing * i + turnOffset;
+                        r_val = getRadiusAtZ(z_val);
+                        rotate([0,90,0]) translate([-z_val, r_val, -depth / 2]) cylinder(r = holeWrapperRadius, h = depth);
+                    }
+                    for(i=[0:1:turns - 1]) {
+                        z_val = holeWrapperZ + spacing * i + spacing / 2 + turnOffset;
+                        r_val = getRadiusAtZ(z_val);
+                        rotate([0,90,0]) translate([-z_val, -r_val, -depth / 2]) cylinder(r = holeWrapperRadius, h = depth);
+                    }
+                    
+                    // 2. Generate the main tapered spine
+                    rotate([0, -90, 0]) linear_extrude(height = depth, center = true) spineProfile(turnOffset);
+                }
+                
+                // 3. Cut out dielectric weight reduction windows dynamically
+                for(i=[0:1:turns]) {
+                    z_val = holeWrapperZ + spacing * (i + 1) - spacing / 2 + turnOffset;
+                    r_val = getRadiusAtZ(z_val);
+                    y_outer = r_val - conductorRadius - walls;
+                    y_inner = cutoutRadius + depth / 2 + walls * 1.5;
+                    if (y_outer > y_inner) {
+                        rotate([0,90,0]) hull() {
+                            translate([-z_val, y_outer, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                            translate([-z_val, y_inner, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        }
+                    }
+                }
+                for(i=[0:1:turns - 1]) {
+                    z_val = holeWrapperZ + spacing * i + spacing / 2 + spacing / 2 + turnOffset;
+                    r_val = getRadiusAtZ(z_val);
+                    y_outer = r_val - conductorRadius - walls;
+                    y_inner = cutoutRadius + depth / 2 + walls * 1.5;
+                    if (y_outer > y_inner) {
+                        rotate([0,90,0]) hull() {
+                            translate([-z_val, -y_outer, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                            translate([-z_val, -y_inner, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        }
+                    }
+                }
+                
+                // Base structure cutouts
+                rotate([0,90,0]) {
+                    hull() {
+                        z_val1 = holeWrapperZ - spacing * 1.5 + turnOffset;
+                        z_val2 = holeWrapperZ - spacing * 2.5 + turnOffset;
+                        r_val1 = getRadiusAtZ(z_val1);
+                        r_val2 = getRadiusAtZ(z_val2);
+                        translate([-z_val1, -cutoutY, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-z_val1, -r_val1, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-z_val2, -cutoutY, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-z_val2, -r_val2, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                    }
+                    hull() {
+                        z_val1 = holeWrapperZ + spacing / 2 + turnOffset;
+                        z_val2 = holeWrapperZ + spacing * 1.5 + turnOffset;
+                        translate([-z_val1, holeWrapperRadius, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-z_val1, cutoutY, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-z_val2, holeWrapperRadius, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-z_val2, cutoutY, -depth/2 - 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                    }
+                }
+            }
+            
+            // 4. Reflector mount anchors
+            if(mounts && both) {
+                difference() {
+                    translate([-depth / 2,-reflectorDiameterOuter / 2, -reflectorWalls - reflectorThickness]) cube([depth, reflectorDiameterOuter, reflectorWalls * 2 + reflectorThickness]);
+                    translate([-depth / 2 - 1,-reflectorRadius, -reflectorThickness]) cube([depth + 2, reflectorDiameter, reflectorThickness]);
+                    translate([-depth / 2 - 1, -reflectorRadius + reflectorWalls, -reflectorWalls - reflectorThickness - 1]) cube([depth + 2, reflectorDiameter - reflectorWalls * 2, reflectorWalls + 2]);
+                }
+            }
+            if(mounts && !both) {
+                difference() {
+                    translate([-depth / 2, 0, -reflectorWalls - reflectorThickness]) cube([depth, reflectorDiameterOuter / 2, reflectorWalls * 2 + reflectorThickness]);
+                    translate([-depth / 2 - 1,-reflectorRadius, -reflectorThickness]) cube([depth + 2, reflectorDiameter, reflectorThickness]);
+                    translate([-depth / 2 - 1, -reflectorRadius + reflectorWalls, -reflectorWalls - reflectorThickness - 1]) cube([depth + 2, reflectorDiameter - reflectorWalls * 2, reflectorWalls + 2]);
+                }
+            }
+        }
+        
+        // 5. Wire holes drilled through guide loops
+        for(i=[0:1:turns - 1]) {
+            z_val = holeWrapperZ + spacing * i + spacing / 2 + turnOffset;
+            r_val = getRadiusAtZ(z_val);
+            rotate([0,90,0]) translate([-z_val, -r_val, -depth / 2 - 1]) cylinder(r = holeRadius, h = depth + 2);
+        }
+        for(i=[0:1:turns]) {
+            z_val = holeWrapperZ + spacing * i + turnOffset;
+            r_val = getRadiusAtZ(z_val);
+            rotate([0,90,0]) translate([-z_val, r_val, -depth / 2 - 1]) cylinder(r = holeRadius, h = depth + 2);
+        }
+    }
+}
+
+
