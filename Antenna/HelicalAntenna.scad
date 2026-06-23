@@ -78,6 +78,13 @@ conductorRadius = conductorDiameter / 2;
 cutoutRadius = (spacing - (walls + conductorRadius) * 2) / 2;
 cutoutY = cutoutRadius + depth / 2 + walls * 1.5;
 
+// Helper function to calculate the Z-height of the wire at any turn coordinate t (angle / 360)
+// Flat at 1.5mm above reflector for first 90 degrees (t <= 0.25), then climbs at standard pitchSpacing.
+function wire_z_turns(t) = 
+    (t < 0) ? (1.5 + t * pitchSpacing) :
+    (t <= 0.25) ? 1.5 : 
+    (1.5 + (t - 0.25) * pitchSpacing);
+
 topRadius = innerRadius + conductorRadius - cutoutRadius;
 holeRadius = conductorRadius + (holeClearance / 2); 
 
@@ -154,16 +161,13 @@ module template(cw = true) {
     coil_center_line_r = meanDiameter / 2;
     
     mandrel_pillar_r = coil_center_line_r + (conductorRadius * 0.4);
-    total_rotation = (turns + 1) * 360 * (cw ? -1 : 1);
     
     difference() {
         cylinder(h = totalHeight, r = mandrel_pillar_r);
         
-        translate([0, 0, -local_overlap]) {
-            linear_extrude(height = totalHeight + 2*local_overlap, twist = total_rotation, slices = turns * 64, convexity = 10) {
-                translate([coil_center_line_r, 0, 0])
-                    circle(r = tool_radius, $fn = 24); 
-            }
+        for (theta = [0 : 3 : (turns + 1) * 360]) {
+            translate([coil_center_line_r * cos(theta * (cw ? -1 : 1)), coil_center_line_r * sin(theta * (cw ? -1 : 1)), wire_z_turns(theta / 360)])
+                sphere(r = tool_radius, $fn = 16);
         }
     }
 }
@@ -172,24 +176,11 @@ module template(cw = true) {
 // NEW: REFLECTOR CUTTING JIG TEMPLATE
 // =============================================================================
 module reflectorCuttingTemplate() {
-    local_overlap = 0.1;
     // 4 solid layers thick at 0.24mm layer height
     template_thickness = layerHeight * 4; 
-    
-    // RF Centerline radius where the wire coil actually starts
-    coax_offset_y = meanDiameter / 2;
 
-    difference() {
-        // 1. Outer disc matching the target PCB cut radius precisely
-        cylinder(h = template_thickness, r = reflectorRadius, $fn = 128);
-        
-        // 2. FIXED: Coaxial Feedline Hole offset to match the root edge of the coil
-        translate([0, -coax_offset_y, -local_overlap])
-            cylinder(h = template_thickness + local_overlap * 2, d = coaxialDiameter + holeClearance, $fn = 32);
-            
-
-    
-    }
+    // Outer disc matching the target PCB cut radius precisely (no coax cutout hole needed for side-feed)
+    cylinder(h = template_thickness, r = reflectorRadius, $fn = 128);
 }
 
 // =============================================================================
@@ -218,7 +209,6 @@ module coverRound() {
                 }
             }
         }
-        translate([coverRadius, coverRadius - innerRadius, -1]) cylinder(r = coaxialRadius, h = reflectorBackCoverHeight + 2);
         translate([reflectorCoverWalls - 0.2, coverWidth/2 - reflectorCoverDepth, reflectorBackCoverHeight]) cube([widthCross, reflectorCoverDepth * 2, reflectorCoverHeight + 2]);
         translate([coverWidth / 2 - reflectorCoverDepth, reflectorCoverWalls - 0.2, reflectorBackCoverHeight]) cube([reflectorCoverDepth * 2, widthCross, reflectorCoverHeight + 2]);
     }
@@ -235,10 +225,10 @@ module top() {
         translate([-depth, -depth / 2 - 0.05, -1]) cube([depth + 2, depth + 0.1, slitHeight + 1]);
         hull() {
             rotate([0,90,0]) {
-                translate([-holeWrapperZ - (spacing * turns) - turnOffset, -innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                translate([-holeWrapperZ - (spacing * turns) - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                translate([-holeWrapperZ - (spacing * (turns + 1)) - turnOffset, -innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                translate([-holeWrapperZ - (spacing * (turns + 1)) - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns + turnOffset / pitchSpacing), -innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns + turnOffset / pitchSpacing), -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns + 1 + turnOffset / pitchSpacing), -innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns + 1 + turnOffset / pitchSpacing), -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
             }
         }
     }
@@ -252,10 +242,10 @@ module bottom() {
         translate([-depth, -depth / 2 - 0.05, slitOffset]) cube([depth + 2, depth + 0.1, height]);
         hull() {
             rotate([0,90,0]) {
-                translate([-holeWrapperZ - (spacing * turns) + spacing / 2 - turnOffset, innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                translate([-holeWrapperZ - (spacing * turns) + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                translate([-holeWrapperZ - (spacing * (turns + 1)) + spacing / 2 - turnOffset, innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                translate([-holeWrapperZ - (spacing * (turns + 1)) + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns - 0.5 + turnOffset / pitchSpacing), innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns - 0.5 + turnOffset / pitchSpacing), cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns + 0.5 + turnOffset / pitchSpacing), innerDiameter, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                translate([-wire_z_turns(turns + 0.5 + turnOffset / pitchSpacing), cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
             }
         }
     }
@@ -266,38 +256,22 @@ module support(turnOffset = 0, mounts = true, both = true) {
         union() {
             difference() {
                 union() {
-                    for(i=[0:1:turns]) {
-                        rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - turnOffset, holeWrapperY, -depth / 2]) cylinder(r = holeWrapperRadius, h = depth);
-                    }
-                    for(i=[0:1:turns -1]) {
-                        rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - spacing / 2 - turnOffset, -holeWrapperY, -depth / 2]) cylinder(r = holeWrapperRadius, h = depth);
-                    }
-                    translate([-depth / 2, -holeWrapperY, 0]) cube([depth, holeWrapperY * 2, turns * spacing + holeWrapperRadius * 2]);
+                    spineWidth = holeWrapperY + holeWrapperRadius;
+                    translate([-depth / 2, -spineWidth, 0]) cube([depth, spineWidth * 2, turns * spacing + holeWrapperRadius * 2]);
                 }
-                for(i=[0:1:turns]) {
-                    rotate([0,90,0]) hull() {
-                        translate([-holeWrapperZ - spacing * (i + 1) + spacing / 2 - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * (i + 1) + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                    }
-                }
-                for(i=[0:1:turns - 1]) {
-                    rotate([0,90,0]) hull() {
-                        translate([-holeWrapperZ - spacing * i - spacing / 2 - spacing / 2 - turnOffset, -holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * i - spacing / 2 - spacing / 2 - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                    }
-                }
+
                 rotate([0,90,0]) {
                     hull() {
-                        translate([-holeWrapperZ - spacing * -1 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * -1 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY * 2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * -2 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * -2 - spacing / 2 - spacing / 2 - turnOffset, -cutoutY * 2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-turnOffset / pitchSpacing), -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-turnOffset / pitchSpacing), -cutoutY * 2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-1 - turnOffset / pitchSpacing), -cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-1 - turnOffset / pitchSpacing), -cutoutY * 2, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
                     }
                     hull() {
-                        translate([-holeWrapperZ + spacing / 2 - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * -1 + spacing / 2 - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
-                        translate([-holeWrapperZ - spacing * -1 + spacing / 2 - turnOffset, cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-0.5 - turnOffset / pitchSpacing), holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-0.5 - turnOffset / pitchSpacing), cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-1.5 - turnOffset / pitchSpacing), holeWrapperY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
+                        translate([-wire_z_turns(-1.5 - turnOffset / pitchSpacing), cutoutY, -depth + 1]) cylinder(r = cutoutRadius, h = depth + 2);
                     }
                 }
             }
@@ -317,10 +291,10 @@ module support(turnOffset = 0, mounts = true, both = true) {
             }
         }
         for(i=[0:1:turns - 1]) {
-            rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - spacing / 2 - turnOffset, -holeWrapperY, -depth + 1]) cylinder(r = holeRadius, h = depth + 2);
+            rotate([0,90,0]) translate([-wire_z_turns(i + 0.5 + turnOffset / pitchSpacing), -holeWrapperY, -depth + 1]) cylinder(r = holeRadius, h = depth + 2);
         }
         for(i=[0:1:turns]) {
-            rotate([0,90,0]) translate([-holeWrapperZ - spacing * i - turnOffset, holeWrapperY, -depth + 1]) cylinder(r = holeRadius, h = depth + 2);
+            rotate([0,90,0]) translate([-wire_z_turns(i + turnOffset / pitchSpacing), holeWrapperY, -depth + 1]) cylinder(r = holeRadius, h = depth + 2);
         }
     }
 }
