@@ -124,13 +124,15 @@ difference() {
             
             // 2. The Hex Lock (The Nut Pocket)
             // $fn=6 makes a hexagon. This locks the nut so it won't spin.
-            translate([0, 0, -housing_h/2 - 0.1]) 
-                cylinder(h=sma_hex_depth + 0.1, d=(sma_hex_size + fit_tolerance) / cos(30), $fn=6);
+            // We extend the cut downward by a large value (50) to remove all material below it.
+            translate([0, 0, -housing_h/2 + sma_hex_depth - 50]) 
+                cylinder(h=50, d=(sma_hex_size + fit_tolerance) / cos(30), $fn=6);
             
             // 3. The Top Deck Leveler
             // This 'shaves' the top of the tilted head so the washer sits perfectly flat.
+            // We use a large height (50) to trim off all material above the mounting face.
             translate([0, 0, housing_h/2])
-                cylinder(h=2, d=sma_outer_dia + 2);
+                cylinder(h=50, d=sma_outer_dia + 2);
         }
     }
 }
